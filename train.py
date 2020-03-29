@@ -60,7 +60,7 @@ def train(args, dataset, generator, discriminator):
     adjust_lr(g_optimizer, args.lr.get(resolution, 0.001))
     adjust_lr(d_optimizer, args.lr.get(resolution, 0.001))
 
-    pbar = tqdm(range(len(dataset)))
+    pbar = tqdm(range(100000))
 
     requires_grad(generator, False)
     requires_grad(discriminator, True)
@@ -259,7 +259,7 @@ def train(args, dataset, generator, discriminator):
 
 if __name__ == '__main__':
     code_size = 512
-    batch_size = 16
+    # batch_size = 16
     n_critic = 1
 
     parser = argparse.ArgumentParser(description='Progressive Growing of GANs')
@@ -338,7 +338,7 @@ if __name__ == '__main__':
 
     if args.sched:
         args.lr = {128: 0.0015, 256: 0.002, 512: 0.003, 1024: 0.003}
-        args.batch = {4: 512, 8: 256, 16: 128, 32: 64, 64: 32, 128: 32, 256: 32}
+        args.batch = {4: 128, 8: 64, 16: 32, 32: 16, 64: 8, 128: 4, 256: 2}
 
     else:
         args.lr = {}
@@ -346,6 +346,6 @@ if __name__ == '__main__':
 
     args.gen_sample = {512: (8, 4), 1024: (4, 2)}
 
-    args.batch_default = 32
+    args.batch_default = 2
 
     train(args, dataset, generator, discriminator)
