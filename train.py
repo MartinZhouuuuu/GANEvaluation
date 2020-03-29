@@ -34,7 +34,7 @@ def accumulate(model1, model2, decay=0.999):
         #two arguments of add_() are multiplied together
         par1[k].data.mul_(decay).add_(1 - decay, par2[k].data)
 
-def sample_data(dataset, batch_size, image_size=4):
+def sample_data(dataset, batch_size, image_size=8):
     dataset.resolution = image_size
     #drop_last drops the last incomplete batch
     loader = DataLoader(dataset, shuffle=True, batch_size=batch_size, num_workers=0, drop_last=True)
@@ -119,6 +119,7 @@ def train(args, dataset, generator, discriminator):
             adjust_lr(d_optimizer, args.lr.get(resolution, 0.001))
 
         try:
+            #get next batch
             real_image = next(data_loader)
 
         except (OSError, StopIteration):
@@ -127,9 +128,10 @@ def train(args, dataset, generator, discriminator):
 
         used_sample += real_image.shape[0]
 
-        b_size = real_image.size(0)
+        batch_size = real_image.size(0)
         real_image = real_image.cuda()
 
+        #discriminator predict and backprop
         if args.loss == 'wgan-gp':
             real_predict = discriminator(real_image, step=step, alpha=alpha)
             real_predict = real_predict.mean() - 0.001 * (real_predict ** 2).mean()
@@ -152,28 +154,29 @@ def train(args, dataset, generator, discriminator):
             if i%10 == 0:
                 grad_loss_val = grad_penalty.item()
 
+        #get random input for generator
         if args.mixing and random.random() < 0.9:
             gen_in11, gen_in12, gen_in21, gen_in22 = torch.randn(
-                4, b_size, code_size, device='cuda'
-            ).chunk(4, 0)
+                4, batch_size, code_size, device='cuda'
+            ).chunk(4, 0) #split the tensor into four chunks along dim 0
             gen_in1 = [gen_in11.squeeze(0), gen_in12.squeeze(0)]
             gen_in2 = [gen_in21.squeeze(0), gen_in22.squeeze(0)]
 
         else:
-            gen_in1, gen_in2 = torch.randn(2, b_size, code_size, device='cuda').chunk(
-                2, 0
-            )
+            gen_in1, gen_in2 = torch.randn(2, batch_size, code_size, device='cuda').chunk(2, 0)
             gen_in1 = gen_in1.squeeze(0)
             gen_in2 = gen_in2.squeeze(0)
 
+        #get fake image
         fake_image = generator(gen_in1, step=step, alpha=alpha)
         fake_predict = discriminator(fake_image, step=step, alpha=alpha)
 
+        #backprop discriminator
         if args.loss == 'wgan-gp':
             fake_predict = fake_predict.mean()
             fake_predict.backward()
 
-            eps = torch.rand(b_size, 1, 1, 1).cuda()
+            eps = torch.rand(batch_size, 1, 1, 1).cuda()
             x_hat = eps * real_image.data + (1 - eps) * fake_image.data
             x_hat.requires_grad = True
             hat_predict = discriminator(x_hat, step=step, alpha=alpha)
@@ -195,14 +198,17 @@ def train(args, dataset, generator, discriminator):
             if i%10 == 0:
                 disc_loss_val = (real_predict + fake_predict).item()
 
+        #update discriminator weights
         d_optimizer.step()
 
+        #generator training
         if (i + 1) % n_critic == 0:
             generator.zero_grad()
 
             requires_grad(generator, True)
             requires_grad(discriminator, False)
 
+            #get fake image and its score
             fake_image = generator(gen_in2, step=step, alpha=alpha)
 
             predict = discriminator(fake_image, step=step, alpha=alpha)
@@ -216,6 +222,7 @@ def train(args, dataset, generator, discriminator):
             if i%10 == 0:
                 gen_loss_val = loss.item()
 
+            #backprop generator and update weights
             loss.backward()
             g_optimizer.step()
             accumulate(g_running, generator.module)
@@ -223,6 +230,7 @@ def train(args, dataset, generator, discriminator):
             requires_grad(generator, False)
             requires_grad(discriminator, True)
 
+        #save samples images
         if (i + 1) % 100 == 0:
             images = []
 
@@ -244,6 +252,7 @@ def train(args, dataset, generator, discriminator):
                 range=(-1, 1),
             )
 
+        #save check points
         if (i + 1) % 10000 == 0:
             torch.save(
                 g_running.state_dict(), f'checkpoint/{str(i + 1).zfill(6)}.model'
