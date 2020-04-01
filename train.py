@@ -60,7 +60,7 @@ def train(args, dataset, generator, discriminator):
     adjust_lr(g_optimizer, args.lr.get(resolution, 0.001))
     adjust_lr(d_optimizer, args.lr.get(resolution, 0.001))
 
-    pbar = tqdm(range(100000))
+    pbar = tqdm(range(500000))
 
     requires_grad(generator, False)
     requires_grad(discriminator, True)
@@ -79,6 +79,9 @@ def train(args, dataset, generator, discriminator):
         #zero out gradient before backprop is done
         discriminator.zero_grad()
 
+        #lr low at the beginning, which causes the skipping connection to be more weighted
+        #smoothens transition
+        #as the end of a phase is approached, it increases. Weightage of smoothening action decays
         alpha = min(1, 1 / args.phase * (used_sample + 1))
 
         if (resolution == args.init_size and args.ckpt is None) or final_progress:
@@ -277,13 +280,13 @@ if __name__ == '__main__':
     parser.add_argument(
         '--phase',
         type=int,
-        default=10000,
+        default=80000,
         help='number of samples used for each training phases',
     )
     parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
     parser.add_argument('--sched', action='store_true', help='use lr scheduling')
     parser.add_argument('--init_size', default=8, type=int, help='initial image size')
-    parser.add_argument('--max_size', default=1024, type=int, help='max image size')
+    parser.add_argument('--max_size', default=256, type=int, help='max image size')
     parser.add_argument(
         '--ckpt', default=None, type=str, help='load from previous checkpoints'
     )
@@ -347,7 +350,7 @@ if __name__ == '__main__':
 
     if args.sched:
         args.lr = {128: 0.0015, 256: 0.002, 512: 0.003, 1024: 0.003}
-        args.batch = {4: 128, 8: 64, 16: 32, 32: 16, 64: 8, 128: 4, 256: 2}
+        args.batch = {4: 128, 8: 32, 16: 16, 32: 8, 64: 4, 128: 2, 256: 1}
 
     else:
         args.lr = {}
