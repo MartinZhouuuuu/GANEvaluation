@@ -52,7 +52,7 @@ def train(args, dataset, generator, discriminator):
     step = int(math.log2(args.init_size)) - 2
     resolution = 4 * 2 ** step
     loader = sample_data(
-        dataset, args.batch.get(resolution, args.batch_default), resolution
+        dataset, args.batch.get(resolution), resolution
     )
     data_loader = iter(loader)
 
@@ -60,7 +60,7 @@ def train(args, dataset, generator, discriminator):
     adjust_lr(g_optimizer, args.lr.get(resolution, 0.001))
     adjust_lr(d_optimizer, args.lr.get(resolution, 0.001))
 
-    pbar = tqdm(range(500000))
+    pbar = tqdm(range(500000 - args.start))
 
     requires_grad(generator, False)
     requires_grad(discriminator, True)
@@ -103,7 +103,7 @@ def train(args, dataset, generator, discriminator):
             resolution = 4 * 2 ** step
 
             loader = sample_data(
-                dataset, args.batch.get(resolution, args.batch_default), resolution
+                dataset, args.batch.get(resolution), resolution
             )
             data_loader = iter(loader)
 
@@ -128,9 +128,8 @@ def train(args, dataset, generator, discriminator):
         except (OSError, StopIteration):
             data_loader = iter(loader)
             real_image = next(data_loader)
-
+       
         used_sample += real_image.shape[0]
-
         batch_size = real_image.size(0)
         real_image = real_image.cuda()
 
@@ -249,7 +248,7 @@ def train(args, dataset, generator, discriminator):
 
             utils.save_image(
                 torch.cat(images, 0),
-                f'sample/{str(i + 1).zfill(6)}.png',
+                f'sample/{str(i + 1 + args.start).zfill(6)}.png',
                 nrow=gen_i,
                 normalize=True,
                 range=(-1, 1),
@@ -258,7 +257,14 @@ def train(args, dataset, generator, discriminator):
         #save check points
         if (i + 1) % 10000 == 0:
             torch.save(
-                g_running.state_dict(), f'checkpoint/{str(i + 1).zfill(6)}.model'
+                {
+                    'generator': generator.module.state_dict(),
+                    'discriminator': discriminator.module.state_dict(),
+                    'g_optimizer': g_optimizer.state_dict(),
+                    'd_optimizer': d_optimizer.state_dict(),
+                    'g_running': g_running.state_dict(),
+                },
+                f'checkpoint/{str(i + 1).zfill(6)}.model'
             )
 
         state_msg = (
@@ -284,7 +290,7 @@ if __name__ == '__main__':
         help='number of samples used for each training phases',
     )
     parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
-    parser.add_argument('--sched', action='store_true', help='use lr scheduling')
+    parser.add_argument('--sched', default=True,action='store_true', help='use lr scheduling')
     parser.add_argument('--init_size', default=8, type=int, help='initial image size')
     parser.add_argument('--max_size', default=256, type=int, help='max image size')
     parser.add_argument(
@@ -292,11 +298,15 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--no_from_rgb_activate',
+        default=True,
         action='store_true',
         help='use activate in from_rgb (original implementation)',
     )
     parser.add_argument(
-        '--mixing', action='store_true', help='use mixing regularization'
+        '--mixing', 
+        default=True,
+        action='store_true', 
+        help='use mixing regularization'
     )
     parser.add_argument(
         '--loss',
@@ -304,6 +314,12 @@ if __name__ == '__main__':
         default='wgan-gp',
         choices=['wgan-gp', 'r1'],
         help='class of gan loss',
+    )
+    parser.add_argument(
+        '--start',
+        type=int,
+        default=0,
+        help='which step to start from',
     )
 
     args = parser.parse_args()
@@ -318,6 +334,7 @@ if __name__ == '__main__':
     g_optimizer = optim.Adam(
         generator.module.generator.parameters(), lr=args.lr, betas=(0.0, 0.99)
     )
+    #when training style blocks lr*0.01
     g_optimizer.add_param_group(
         {
             'params': generator.module.style.parameters(),
@@ -357,7 +374,5 @@ if __name__ == '__main__':
         args.batch = {}
 
     args.gen_sample = {512: (8, 4), 1024: (4, 2)}
-
-    args.batch_default = 2
 
     train(args, dataset, generator, discriminator)
