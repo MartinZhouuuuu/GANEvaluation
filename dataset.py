@@ -1,9 +1,8 @@
 from io import BytesIO
-
+import torch
 import lmdb
 from PIL import Image
 from torch.utils.data import Dataset
-
 
 class MultiResolutionDataset(Dataset):
 	'''
@@ -43,3 +42,26 @@ class MultiResolutionDataset(Dataset):
 		img = self.transform(img)
 
 		return img
+
+class TwoClassDataset(Dataset):
+	def __init__(self,original,generated):
+		tuple_oringal = tuple([original[i].unsqueeze(0) for i in range(100)])
+		tuple_generated = tuple([generated[i][0].unsqueeze(0) for i in range(100)])
+		tensor_original = torch.cat(tuple_oringal,0)
+		tensor_generated = torch.cat(tuple_generated,0)
+		
+		self.data = torch.cat(tuple([tensor_original,tensor_generated]),0)
+
+		self.labels = torch.cat(tuple([torch.ones([100],dtype = torch.int8),torch.zeros([100],dtype = torch.int8)]))
+
+	def __len__(self):
+		return self.data.size()[0]
+
+	def __getitem__(self,index):
+		data,labels = self.data[index],int(self.labels[index])
+
+		return data, labels
+
+
+
+
