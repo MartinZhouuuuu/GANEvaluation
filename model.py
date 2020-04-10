@@ -460,6 +460,7 @@ class StyledGenerator(nn.Module):
             layers.append(EqualLinear(code_dim, code_dim))
             layers.append(nn.LeakyReLU(0.2))
 
+        #all the style layers, i.e. 8 mlp layers
         self.style = nn.Sequential(*layers)
 
     def forward(
@@ -499,6 +500,7 @@ class StyledGenerator(nn.Module):
         return self.generator(styles, noise, step, alpha, mixing_range=mixing_range)
 
     def mean_style(self, input):
+        #calculate mean across row 0, dimension 0 is squeezed and other dimensions kept
         style = self.style(input).mean(0, keepdim=True)
 
         return style

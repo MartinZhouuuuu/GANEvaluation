@@ -73,12 +73,12 @@ def train(args, dataset, generator, discriminator):
     used_sample = 0
 
     max_step = int(math.log2(args.max_size)) - 2
-    final_progress = False
+    final_progress = True
 
     for i in pbar:
         #zero out gradient before backprop is done
         discriminator.zero_grad()
-
+        
         #lr low at the beginning, which causes the skipping connection to be more weighted
         #smoothens transition
         #as the end of a phase is approached, it increases. Weightage of smoothening action decays
@@ -101,12 +101,13 @@ def train(args, dataset, generator, discriminator):
                 ckpt_step = step
 
             resolution = 4 * 2 ** step
-
+            
             loader = sample_data(
                 dataset, args.batch.get(resolution), resolution
             )
+            
             data_loader = iter(loader)
-
+            
             torch.save(
                 {
                     'generator': generator.module.state_dict(),
@@ -118,13 +119,14 @@ def train(args, dataset, generator, discriminator):
                 f'checkpoint/train_step-{ckpt_step}.model',
             )
 
+
             adjust_lr(g_optimizer, args.lr.get(resolution, 0.001))
             adjust_lr(d_optimizer, args.lr.get(resolution, 0.001))
-
+            
         try:
             #get next batch
             real_image = next(data_loader)
-
+            
         except (OSError, StopIteration):
             data_loader = iter(loader)
             real_image = next(data_loader)
@@ -136,6 +138,7 @@ def train(args, dataset, generator, discriminator):
         #discriminator predict and backprop
         if args.loss == 'wgan-gp':
             real_predict = discriminator(real_image, step=step, alpha=alpha)
+            
             real_predict = real_predict.mean() - 0.001 * (real_predict ** 2).mean()
             (-real_predict).backward()
 
@@ -172,7 +175,7 @@ def train(args, dataset, generator, discriminator):
         #get fake image
         fake_image = generator(gen_in1, step=step, alpha=alpha)
         fake_predict = discriminator(fake_image, step=step, alpha=alpha)
-
+        
         #backprop discriminator
         if args.loss == 'wgan-gp':
             fake_predict = fake_predict.mean()
@@ -236,7 +239,7 @@ def train(args, dataset, generator, discriminator):
         if (i + 1) % 100 == 0:
             images = []
 
-            gen_i, gen_j = args.gen_sample.get(resolution, (10, 5))
+            gen_i, gen_j = args.gen_sample.get(resolution, (8, 4))
 
             with torch.no_grad():
                 for _ in range(gen_i):
@@ -245,14 +248,14 @@ def train(args, dataset, generator, discriminator):
                             torch.randn(gen_j, code_size).cuda(), step=step, alpha=alpha
                         ).data.cpu()
                     )
-
             utils.save_image(
                 torch.cat(images, 0),
                 f'sample/{str(i + 1 + args.start).zfill(6)}.png',
                 nrow=gen_i,
                 normalize=True,
-                range=(-1, 1),
+                range=(-1, 1)
             )
+            torch.cuda.empty_cache()
 
         #save check points
         if (i + 1) % 10000 == 0:
@@ -264,7 +267,7 @@ def train(args, dataset, generator, discriminator):
                     'd_optimizer': d_optimizer.state_dict(),
                     'g_running': g_running.state_dict(),
                 },
-                f'checkpoint/{str(i + 1).zfill(6)}.model'
+                f'checkpoint/{str(i + 1 + args.start).zfill(6)}.model'
             )
 
         state_msg = (
