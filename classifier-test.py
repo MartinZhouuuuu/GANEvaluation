@@ -48,8 +48,9 @@ train_epoch_loss = []
 val_epoch_loss = []
 train_epoch_acc = []
 val_epoch_acc = []
-
+highest_val_acc = 0
 for epoch in range(num_epochs):
+
 	running_loss = 0
 	iteration_count = 0
 	train_correct = 0
@@ -95,6 +96,9 @@ for epoch in range(num_epochs):
 		val_pred = classifier(val_images).squeeze(1)
 		val_loss = loss_criterion(val_pred, val_labels).item()
 		val_acc = accuracy(val_pred, val_labels,num_val)
+		if val_acc > highest_val_acc:
+			highest_val_acc = val_acc
+			torch.save(classifier.state_dict(), 'model-files/%d-%.2f.pth'%(epoch,val_acc))
 		print('Epoch', epoch+1, 'val_loss','%.2f'%val_loss,'val_acc', '%.2f'%val_acc + '%')
 		
 		val_epoch_loss.append(val_loss)

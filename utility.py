@@ -36,7 +36,6 @@ def plot_acc(train_acc,val_acc,path):
 	plt.title("Accuracy")
 	plt.ylabel('Accuracy')
 	plt.xlabel('Epoch')
-	plt.ylim(0.50, 1.00)
 	plt.legend(['Train', 'Validation'], loc = 'lower right')
 	plt.savefig(path+'/acc.png')
 	plt.close()
