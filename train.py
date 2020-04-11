@@ -73,7 +73,7 @@ def train(args, dataset, generator, discriminator):
     used_sample = 0
 
     max_step = int(math.log2(args.max_size)) - 2
-    final_progress = False
+    final_progress = True
 
     for i in pbar:
         #zero out gradient before backprop is done
