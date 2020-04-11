@@ -73,7 +73,7 @@ def train(args, dataset, generator, discriminator):
     used_sample = 0
 
     max_step = int(math.log2(args.max_size)) - 2
-    final_progress = True
+    final_progress = False
 
     for i in pbar:
         #zero out gradient before backprop is done
@@ -87,7 +87,7 @@ def train(args, dataset, generator, discriminator):
         if (resolution == args.init_size and args.ckpt is None) or final_progress:
             alpha = 1
 
-        if used_sample > args.phase * 2:
+        if used_sample/args.batch.get(resolution) > args.phase:
             used_sample = 0
             step += 1
 
@@ -280,7 +280,6 @@ def train(args, dataset, generator, discriminator):
 
 if __name__ == '__main__':
     code_size = 512
-    # batch_size = 16
     n_critic = 1
 
     parser = argparse.ArgumentParser(description='Progressive Growing of GANs')
@@ -289,11 +288,11 @@ if __name__ == '__main__':
     parser.add_argument(
         '--phase',
         type=int,
-        default=80000,
+        default=50000,
         help='number of samples used for each training phases',
     )
     parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
-    parser.add_argument('--sched', default=True,action='store_true', help='use lr scheduling')
+    parser.add_argument('--sched', default=True, help='use lr scheduling')
     parser.add_argument('--init_size', default=8, type=int, help='initial image size')
     parser.add_argument('--max_size', default=256, type=int, help='max image size')
     parser.add_argument(
@@ -301,14 +300,14 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--no_from_rgb_activate',
-        default=True,
-        action='store_true',
+        default=False,
+        # action='store_true',
         help='use activate in from_rgb (original implementation)',
     )
     parser.add_argument(
         '--mixing', 
         default=True,
-        action='store_true', 
+        # action='store_true', 
         help='use mixing regularization'
     )
     parser.add_argument(
@@ -370,7 +369,7 @@ if __name__ == '__main__':
 
     if args.sched:
         args.lr = {128: 0.0015, 256: 0.002, 512: 0.003, 1024: 0.003}
-        args.batch = {4: 128, 8: 32, 16: 16, 32: 8, 64: 4, 128: 2, 256: 1}
+        args.batch = {4: 64, 8: 8, 16: 8, 32: 8, 64: 4, 128: 4, 256: 2}
 
     else:
         args.lr = {}
