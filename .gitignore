@@ -30,6 +30,7 @@ MANIFEST
 *.webp
 *.mdb
 *.png
+*.jpg
 *.model
 *.DS_Store
 *.pth

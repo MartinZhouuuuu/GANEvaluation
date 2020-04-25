@@ -7,7 +7,7 @@ from torch.utils.data import Dataset
 class MultiResolutionDataset(Dataset):
 	'''
 	a custom dataset
-	but the multiresoluton conversion has been done in prepare_data.py
+	but the multiresoluton conversion has been done in images-to-lmdb.py
 	'''
 
 	def __init__(self, path, transform, resolution=8):
@@ -44,15 +44,16 @@ class MultiResolutionDataset(Dataset):
 		return img
 
 class TwoClassDataset(Dataset):
-	def __init__(self,original,generated):
-		tuple_oringal = tuple([original[i].unsqueeze(0) for i in range(1000)])
-		tuple_generated = tuple([generated[i][0].unsqueeze(0) for i in range(1000)])
-		tensor_original = torch.cat(tuple_oringal,0)
+	def __init__(self,original,generated,size):
+		tuple_original = tuple([original[i][0].unsqueeze(0) for i in range(size)])
+		tuple_generated = tuple([generated[i][0].unsqueeze(0) for i in range(size)])
+		#concat all individual tensors in the tuple to one tensor
+		tensor_original = torch.cat(tuple_original,0)
 		tensor_generated = torch.cat(tuple_generated,0)
 		
 		self.data = torch.cat(tuple([tensor_original,tensor_generated]),0)
 
-		self.labels = torch.cat(tuple([torch.ones([1000]),torch.zeros([1000])]))
+		self.labels = torch.cat(tuple([torch.ones([size]),torch.zeros([size])]))
 
 	def __len__(self):
 		return self.data.size()[0]
