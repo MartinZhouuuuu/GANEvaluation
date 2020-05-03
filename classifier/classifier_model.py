@@ -20,6 +20,7 @@ class FCNET(nn.Module):
 
 		self.progression.append(nn.Linear(num_units[-1],out_dim))
 		self.progression.append(nn.Sigmoid())
+		# self.progression.append(nn.Softmax())
 
 	def forward(self,x):
 		x = x.view(-1,self.input_dim)

@@ -23,21 +23,21 @@ def accuracy(pred,labels,num_samples):
 	return acc
 
 def plot_loss(train_loss,val_loss,path):
-	plt.plot(train_loss)
-	plt.plot(val_loss)
+	plt.plot(list(range(1, len(train_loss)+1)),train_loss)
+	plt.plot(list(range(1, len(val_loss)+1)),val_loss)
 	plt.title("Loss")
 	plt.ylabel('Loss')
 	plt.xlabel('Epoch')
-	plt.legend(['Train', 'Validation'], loc = 'upper right')
+	plt.legend(['Train', 'Validation'], loc = 'lower left')
 	plt.savefig(path+'/loss.png')
 	plt.close()
 
 def plot_acc(train_acc,val_acc,path):
-	plt.plot(train_acc)
-	plt.plot(val_acc)
+	plt.plot(list(range(1, len(train_acc)+1)),train_acc)
+	plt.plot(list(range(1, len(val_acc)+1)),val_acc)
 	plt.title("Accuracy")
 	plt.ylabel('Accuracy')
 	plt.xlabel('Epoch')
-	plt.legend(['Train', 'Validation'], loc = 'lower right')
+	plt.legend(['Train', 'Validation'], loc = 'upper left')
 	plt.savefig(path+'/acc.png')
 	plt.close()

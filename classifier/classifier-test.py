@@ -2,12 +2,13 @@ import torch
 from torchvision.datasets import ImageFolder
 from torch.utils.data import DataLoader,Subset
 from torchvision import transforms
+from torch.utils.tensorboard import SummaryWriter
 from classifier_model import *
 import torch.optim as optim
 import torch.autograd as autograd
 import torch.nn as nn
 from torch.utils.data import random_split
-from utility import accuracy, imshow, plot_loss, plot_acc
+from utility import imshow, plot_loss, plot_acc
 from PIL import Image
 
 if __name__ == '__main__':
@@ -16,6 +17,7 @@ if __name__ == '__main__':
 	num_epochs = 100
 	batch_size = 64
 	dataset_size = 20000
+	writer = SummaryWriter('runs/binary_classifier/JPG-PSI1.0')
 
 	transform = transforms.Compose(
 			[
@@ -27,7 +29,7 @@ if __name__ == '__main__':
 		)
 	
 	#create combined set
-	combined_set = ImageFolder('original-vs-generated',transform = transform)
+	combined_set = ImageFolder('real-vs-generated',transform = transform)
 	print(combined_set)
 
 	#split train val test
@@ -54,17 +56,20 @@ if __name__ == '__main__':
 	testLoader = DataLoader(test,shuffle = False, batch_size = 64)
 
 	#network
-	# classifier = FCNET(3*2**16, [20,20,20,20,20,20,20], 1).to('cuda')
-	classifier = ConvNet([16,16,16,16],include_dense=True).to('cuda')
+	classifier = FCNET(3*2**16, [20], 1).to('cuda')
+	# classifier = ConvNet([16],include_dense=True).to('cuda')
 	print(classifier)
+	writer.add_graph(classifier)
 	loss_criterion = nn.BCELoss()
-	adam_optim = optim.Adam(classifier.parameters(), lr=0.001)
+	# loss_criterion = nn.CrossEntropyLoss()
+	adam_optim = optim.Adam(classifier.parameters(), lr=3e-6)
 
 	train_epoch_loss = []
 	val_epoch_loss = []
 	train_epoch_acc = []
 	val_epoch_acc = []
-	highest_val_acc = 0
+	# highest_val_acc = 0
+	lowest_val_loss = 999999
 
 	train = True
 	
@@ -79,7 +84,7 @@ if __name__ == '__main__':
 				iteration_count += 1
 				#torch.cuda is really crucial
 				train_images, train_labels = batch[0].to('cuda'), batch[1].type(torch.cuda.FloatTensor).to('cuda')
-
+				
 				adam_optim.zero_grad()
 
 				train_pred = classifier(train_images).squeeze(1)
@@ -90,7 +95,12 @@ if __name__ == '__main__':
 				adam_optim.step()
 
 				running_loss += loss.item()
-
+				
+				writer.add_scalar(
+					'training iteration loss', 
+					loss.item(),
+					global_step=(epoch+1)*len(trainLoader)+i)
+				
 				for pred in range(train_labels.size()[0]):
 					if train_pred[pred]>=0.5:
 						train_pred[pred] = 1
@@ -101,14 +111,25 @@ if __name__ == '__main__':
 						train_correct += 1
 
 				print('iteration', i+1 ,'train_loss %.3f' % loss.item())
-				del train_images,train_labels
+				# del train_images,train_labels
 
 			train_loss = running_loss/iteration_count
 			train_acc = train_correct / train_size  * 100
 			print('Epoch',epoch+1,'train_loss %.3f' % train_loss,'train_acc', '%.2f'% train_acc + '%')
-			
+			writer.add_scalar(
+				'training epoch loss', 
+				train_loss,
+				global_step=(epoch+1))
+
+			writer.add_scalar(
+				'training epoch acc', 
+				train_acc,
+				global_step=(epoch+1))
+
 			train_epoch_loss.append(train_loss)
 			train_epoch_acc.append(train_acc)
+
+			# writer.add_histogram('dense1.weights', classifier.progression[0].weight,epoch+1)
 
 			with torch.no_grad():
 				classifier.eval()
@@ -140,13 +161,26 @@ if __name__ == '__main__':
 				
 				val_acc = val_correct / val_size * 100
 
-				if val_acc > highest_val_acc:
-					highest_val_acc = val_acc
+				writer.add_scalar(
+					'val loss', 
+					val_loss,
+					global_step=(epoch+1))
+
+				writer.add_scalar(
+					'val acc', 
+					val_acc,
+					global_step=(epoch+1))
+
+				if (epoch+1)%10 == 0:
+					torch.save(classifier.state_dict(), 'model-files/%d-%.3f.pth'%(epoch+1,val_loss))
+
+				if val_loss <= lowest_val_loss:
+					lowest_val_loss = val_loss
 					#epochs of model files are wrong
-					torch.save(classifier.state_dict(), 'model-files/%d-%.2f.pth'%(epoch+1,val_acc))
+					torch.save(classifier.state_dict(), 'model-files/%d-%.3f.pth'%(epoch+1,val_loss))
 					print('new model saved')
-				
-				print('Epoch', epoch+1, 'val_loss','%.2f'%val_loss,'val_acc', '%.2f'%val_acc + '%')
+
+				print('Epoch', epoch+1, 'val_loss','%.3f'%val_loss,'val_acc', '%.2f'%val_acc + '%')
 				
 				val_epoch_loss.append(val_loss)
 				val_epoch_acc.append(val_acc)
@@ -158,7 +192,7 @@ if __name__ == '__main__':
 	with torch.no_grad():
 		classifier.eval()
 		if not train:
-			classifier.load_state_dict(torch.load('model-files/28-93.65.pth'))
+			classifier.load_state_dict(torch.load('model-files/86-0.425.pth'))
 			test_running_loss = 0
 			test_iteration_count = 0
 			test_correct = 0
@@ -187,4 +221,4 @@ if __name__ == '__main__':
 			
 			test_acc = test_correct / test_size * 100
 	
-			print('test_loss','%.2f'%test_loss,'test_acc', '%.2f'%test_acc + '%')
+			print('test_loss','%.3f'%test_loss,'test_acc', '%.2f'%test_acc + '%')
