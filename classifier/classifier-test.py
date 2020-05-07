@@ -9,11 +9,14 @@ import torch.autograd as autograd
 import torch.nn as nn
 from torch.utils.data import random_split
 from PIL import Image
+from utility import plot_classes_preds,count_correct
+import random
 
 if __name__ == '__main__':
 	# device = torch.device('cuda')
-	torch.manual_seed(6489)
-	num_epochs = 100
+	seed = 6489
+	torch.manual_seed(seed)
+	num_epochs = 300
 	batch_size = 64
 	dataset_size = 20000
 	start_epoch = 0
@@ -31,6 +34,7 @@ if __name__ == '__main__':
 	#create combined set
 	combined_set = ImageFolder('real-vs-generated',transform = transform)
 	print(combined_set)
+	classes = ['generated','real']
 
 	#split train val test
 	train_size = int(dataset_size*0.8)
@@ -49,21 +53,22 @@ if __name__ == '__main__':
 	valLoader = DataLoader(
 		val,
 		shuffle = False, 
-		batch_size = 64,
+		batch_size = batch_size,
 		num_workers = 8,
 		pin_memory=True)
 
-	testLoader = DataLoader(test,shuffle = False, batch_size = 64)
+	testLoader = DataLoader(test,shuffle = False, batch_size = batch_size)
 
 	#network
 	# classifier = FCNET(3*2**16, [20], 1).to('cuda')
 	classifier = ConvNet([16],include_dense=True).to('cuda')
 	print(classifier)
-	# classifier.load_state_dict(torch.load('model-files/10-0.778.pth'))
+	# classifier.load_state_dict(torch.load('model-files/100-0.651.pth'))
 	
 	loss_criterion = nn.BCELoss()
 	# loss_criterion = nn.CrossEntropyLoss()
-	adam_optim = optim.Adam(classifier.parameters(), lr=3e-6)
+	lr = 3e-6
+	adam_optim = optim.Adam(classifier.parameters(), lr=lr)
 
 	# train_epoch_loss = []
 	# val_epoch_loss = []
@@ -76,13 +81,16 @@ if __name__ == '__main__':
 
 	if train:
 		writer = SummaryWriter('runs/binary_classifier/psi-1.0/Conv+FC/1Conv16+1FC20')
-
+		writer.add_hparams({'lr': lr,
+			'batch_size': batch_size,
+			'seed': seed,
+			'num_samples': dataset_size
+			},{})
 		for epoch in range(num_epochs):
 
 			running_loss = 0
 			iteration_count = 0
 			train_correct = 0
-
 
 			for i,batch in enumerate(trainLoader):
 				iteration_count += 1
@@ -101,20 +109,12 @@ if __name__ == '__main__':
 
 				running_loss += loss.item()
 				
-
 				# writer.add_scalar(
 					# 'training iteration loss', 
 					# loss.item(),
 					# global_step=(epoch+1+start_epoch)*len(trainLoader)+i)
 				
-				for pred in range(train_labels.size()[0]):
-					if train_pred[pred]>=0.5:
-						train_pred[pred] = 1
-					else:
-						train_pred[pred] = 0
-					
-					if int(train_pred[pred]) == int(train_labels[pred]):
-						train_correct += 1
+				train_correct += count_correct(train_pred, train_labels)[1]
 
 				print('iteration', i+1 ,'train_loss %.3f' % loss.item())
 				# del train_images,train_labels
@@ -143,23 +143,19 @@ if __name__ == '__main__':
 				val_iteration_count = 0
 				val_correct = 0
 
+				random_batch = random.randint(0,31)
 				for i,batch in enumerate(valLoader):
 
 					val_images, val_labels = batch[0].to('cuda'), batch[1].type(torch.cuda.FloatTensor).to('cuda')
-					
 					val_pred = classifier(val_images).squeeze(1)
-
 					val_iteration_loss = loss_criterion(val_pred, val_labels)
 					val_running_loss += val_iteration_loss.item()
-
-					for index in range(val_labels.size()[0]):
-						if val_pred[index]>=0.5:
-							val_pred[index] = 1
-						else:
-							val_pred[index] = 0
-						
-						if int(val_pred[index]) == int(val_labels[index]):
-							val_correct += 1
+					if i == random_batch:
+						 writer.add_figure('predictions vs. actuals',
+                            plot_classes_preds(val_images,val_pred,val_labels,classes),
+                            global_step=epoch+1)
+					
+					val_correct += count_correct(val_pred, val_labels)[1]
 
 					val_iteration_count += 1
 
