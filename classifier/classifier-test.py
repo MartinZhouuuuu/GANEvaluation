@@ -9,7 +9,7 @@ import torch.autograd as autograd
 import torch.nn as nn
 from torch.utils.data import random_split
 from PIL import Image
-from utility import plot_classes_preds,count_correct
+from utility import plot_classes_preds,count_correct,predict_and_save
 import random
 
 if __name__ == '__main__':
@@ -60,14 +60,14 @@ if __name__ == '__main__':
 	testLoader = DataLoader(test,shuffle = False, batch_size = batch_size)
 
 	#network
-	# classifier = FCNET(3*2**16, [20], 1).to('cuda')
-	classifier = ConvNet([16],include_dense=True).to('cuda')
+	classifier = FCNET(3*2**16, [160], 1).to('cuda')
+	# classifier = ConvNet([16],include_dense=True).to('cuda')
 	print(classifier)
 	# classifier.load_state_dict(torch.load('model-files/100-0.651.pth'))
 	
 	loss_criterion = nn.BCELoss()
 	# loss_criterion = nn.CrossEntropyLoss()
-	lr = 3e-6
+	lr = 3e-7
 	adam_optim = optim.Adam(classifier.parameters(), lr=lr)
 
 	# train_epoch_loss = []
@@ -80,7 +80,7 @@ if __name__ == '__main__':
 	train = True
 
 	if train:
-		writer = SummaryWriter('runs/binary_classifier/psi-1.0/Conv+FC/1Conv16+1FC20')
+		writer = SummaryWriter('runs/binary_classifier/psi-1.0/FC-only/1FC160')
 		writer.add_hparams({'lr': lr,
 			'batch_size': batch_size,
 			'seed': seed,
@@ -148,6 +148,10 @@ if __name__ == '__main__':
 
 					val_images, val_labels = batch[0].to('cuda'), batch[1].type(torch.cuda.FloatTensor).to('cuda')
 					val_pred = classifier(val_images).squeeze(1)
+					#add save image code
+
+
+
 					val_iteration_loss = loss_criterion(val_pred, val_labels)
 					val_running_loss += val_iteration_loss.item()
 					if i == random_batch:
@@ -194,7 +198,7 @@ if __name__ == '__main__':
 	with torch.no_grad():
 		classifier.eval()
 		if not train:
-			classifier.load_state_dict(torch.load('model-files/174-0.643.pth'))
+			classifier.load_state_dict(torch.load('model-files/185-0.636.pth'))
 			test_running_loss = 0
 			test_iteration_count = 0
 			test_correct = 0
@@ -204,6 +208,8 @@ if __name__ == '__main__':
 				test_images, test_labels = batch[0].to('cuda'), batch[1].type(torch.cuda.FloatTensor).to('cuda')
 				
 				test_pred = classifier(test_images).squeeze(1)
+				
+				predict_and_save(test_images, test_pred, test_labels, classes, i)
 
 				test_iteration_loss = loss_criterion(test_pred, test_labels)
 				test_running_loss += test_iteration_loss.item()

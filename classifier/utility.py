@@ -50,7 +50,7 @@ def plot_classes_preds(images,predictions,labels,classes):
 	class_prediction = count_correct(predictions, labels)[0]
 
 	# plot the images in the batch, along with predicted and true labels
-	fig = plt.figure(figsize=(10,8))
+	fig = plt.figure(figsize=(10,4))
 	
 	for idx in np.arange(4):
 		ax = fig.add_subplot(1, 4, idx+1, xticks=[], yticks=[])
@@ -61,3 +61,16 @@ def plot_classes_preds(images,predictions,labels,classes):
 			classes[int(labels[idx])]),
 					color=("green" if int(class_prediction[idx])==int(labels[idx]) else "red"))
 	return fig
+
+def predict_and_save(images,predictions,labels,classes,batch_num):
+	class_prediction = count_correct(predictions, labels)[0]
+	for idx in range(images.size()[0]):
+		matplotlib_imshow(images[idx])
+		plt.title("{0}, {1:.3f}\n(label: {2})".format(
+			classes[int(class_prediction[idx])],
+			predictions[idx],
+			classes[int(labels[idx])]),
+					color=("green" if int(class_prediction[idx])==int(labels[idx]) else "red"))
+		file_name = batch_num*64 + idx	
+		plt.savefig('predictions/%d.jpg' % file_name)
+		plt.close()
