@@ -1,5 +1,7 @@
 import torch
 from torchvision.datasets import ImageFolder
+from torchvision.datasets.folder import IMG_EXTENSIONS
+print(IMG_EXTENSIONS)
 from torch.utils.data import DataLoader,Subset
 from torchvision import transforms
 from torch.utils.tensorboard import SummaryWriter
@@ -15,7 +17,9 @@ from torchvision.models import resnet50
 import tifffile
 from PIL import Image
 import os
-
+def read_tif(file):
+	return tifffile.imread(file)
+	
 if __name__ == '__main__':
 	# device = torch.device('cuda')
 	seed = 6489
@@ -27,24 +31,20 @@ if __name__ == '__main__':
 	
 	transform = transforms.Compose(
 			[
-				transforms.Resize(256,Image.LANCZOS),
-				transforms.CenterCrop(256),
+				# transforms.Resize(256,Image.LANCZOS),
+				# transforms.CenterCrop(256),
 				transforms.ToTensor(),
 				transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5), inplace=True),
 			]
 		)
 	
+	
 	#create combined set
-	combined_set = ImageFolder('real-vs-generated',transform = transform)
+	combined_set = ImageFolder('constant1-vs-2',transform = transform,loader=read_tif)
 	
-	
-
-
-
-
-
 	print(combined_set)
-	classes = ['generated','real']
+	# classes = ['generated','real']
+	classes = ['constant1','constant2']
 	#for testing all
 	loader = DataLoader(
 		combined_set,
@@ -85,7 +85,7 @@ if __name__ == '__main__':
 	
 	loss_criterion = nn.BCELoss()
 	# loss_criterion = nn.CrossEntropyLoss()
-	lr = 1e-4
+	lr = 1e-6
 	adam_optim = optim.Adam(classifier.parameters(), lr=lr)
 
 	# train_epoch_loss = []
@@ -98,7 +98,7 @@ if __name__ == '__main__':
 	train = True
 
 	if train:
-		writer = SummaryWriter('runs/binary_classifier/psi-1.0/constant2/1FC-20')
+		writer = SummaryWriter('runs/binary_classifier/psi-1.0/constant1-vs-2/1FC-20')
 		writer.add_hparams({'lr': lr,
 			'batch_size': batch_size,
 			'seed': seed,
@@ -170,11 +170,12 @@ if __name__ == '__main__':
 
 					val_iteration_loss = loss_criterion(val_pred, val_labels)
 					val_running_loss += val_iteration_loss.item()
+					'''
 					if i == random_batch:
 						 writer.add_figure('predictions vs. actuals',
                             plot_classes_preds(val_images,val_pred,val_labels,classes),
                             global_step=epoch+1)
-					
+					'''
 					val_correct += count_correct(val_pred, val_labels)[1]
 
 					val_iteration_count += 1

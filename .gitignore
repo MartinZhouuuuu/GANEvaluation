@@ -31,6 +31,7 @@ MANIFEST
 *.mdb
 *.png
 *.jpg
+*.tif
 *.model
 *.DS_Store
 *.pth
