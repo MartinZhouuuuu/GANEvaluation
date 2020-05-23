@@ -71,6 +71,7 @@ def predict_and_save(images,predictions,labels,classes,batch_num):
 			predictions[idx],
 			classes[int(labels[idx])]),
 					color=("green" if int(class_prediction[idx])==int(labels[idx]) else "red"))
-		file_name = batch_num*64 + idx	
-		plt.savefig('predictions/%d.jpg' % file_name)
+		file_name = batch_num*64 + idx
+		flag = str(int(class_prediction[idx])==int(labels[idx]))
+		plt.savefig('pred/%s-%.3f-%d.jpg' % (flag,predictions[idx],file_name))
 		plt.close()

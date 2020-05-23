@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
-
+from torchvision.models import ResNet
 class FCNET(nn.Module):
 	'''
 	num_units is a list of number of hidden units 
@@ -51,6 +51,7 @@ class ConvNet(nn.Module):
 		for i in range(self.num_conv-1):
 			self.conv_progression.append(nn.Conv2d(conv_config[i],conv_config[i+1],3,padding=1))
 			self.conv_progression.append(nn.ReLU())
+
 			self.conv_progression.append(nn.MaxPool2d(2))
 			
 		self.linear_progression = nn.ModuleList([])

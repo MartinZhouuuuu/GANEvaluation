@@ -11,6 +11,10 @@ from torch.utils.data import random_split
 from PIL import Image
 from utility import plot_classes_preds,count_correct,predict_and_save
 import random
+from torchvision.models import resnet50
+import tifffile
+from PIL import Image
+import os
 
 if __name__ == '__main__':
 	# device = torch.device('cuda')
@@ -21,7 +25,6 @@ if __name__ == '__main__':
 	dataset_size = 20000
 	start_epoch = 0
 	
-
 	transform = transforms.Compose(
 			[
 				transforms.Resize(256,Image.LANCZOS),
@@ -33,8 +36,22 @@ if __name__ == '__main__':
 	
 	#create combined set
 	combined_set = ImageFolder('real-vs-generated',transform = transform)
+	
+	
+
+
+
+
+
 	print(combined_set)
 	classes = ['generated','real']
+	#for testing all
+	loader = DataLoader(
+		combined_set,
+		shuffle = False,
+		batch_size = batch_size,
+		num_workers = 8,
+		pin_memory=True)
 
 	#split train val test
 	train_size = int(dataset_size*0.8)
@@ -45,14 +62,14 @@ if __name__ == '__main__':
 	#create loader for combined set
 	trainLoader = DataLoader(
 		train,
-		shuffle = True, 
+		shuffle = True,
 		batch_size = batch_size,
 		num_workers = 8,
 		pin_memory=True)
 
 	valLoader = DataLoader(
 		val,
-		shuffle = False, 
+		shuffle = False,
 		batch_size = batch_size,
 		num_workers = 8,
 		pin_memory=True)
@@ -60,14 +77,15 @@ if __name__ == '__main__':
 	testLoader = DataLoader(test,shuffle = False, batch_size = batch_size)
 
 	#network
-	classifier = FCNET(3*2**16, [160], 1).to('cuda')
+	classifier = FCNET(3*2**16, [20], 1).to('cuda')
 	# classifier = ConvNet([16],include_dense=True).to('cuda')
+	# classifier = resnet50(num_classes=1).to('cuda')
 	print(classifier)
 	# classifier.load_state_dict(torch.load('model-files/100-0.651.pth'))
 	
 	loss_criterion = nn.BCELoss()
 	# loss_criterion = nn.CrossEntropyLoss()
-	lr = 3e-7
+	lr = 1e-4
 	adam_optim = optim.Adam(classifier.parameters(), lr=lr)
 
 	# train_epoch_loss = []
@@ -80,7 +98,7 @@ if __name__ == '__main__':
 	train = True
 
 	if train:
-		writer = SummaryWriter('runs/binary_classifier/psi-1.0/FC-only/1FC160')
+		writer = SummaryWriter('runs/binary_classifier/psi-1.0/constant2/1FC-20')
 		writer.add_hparams({'lr': lr,
 			'batch_size': batch_size,
 			'seed': seed,
@@ -96,6 +114,7 @@ if __name__ == '__main__':
 				iteration_count += 1
 				#torch.cuda is really crucial
 				train_images, train_labels = batch[0].to('cuda'), batch[1].type(torch.cuda.FloatTensor).to('cuda')
+				
 				if i == 0:
 					writer.add_graph(classifier,train_images)
 				adam_optim.zero_grad()
@@ -148,9 +167,6 @@ if __name__ == '__main__':
 
 					val_images, val_labels = batch[0].to('cuda'), batch[1].type(torch.cuda.FloatTensor).to('cuda')
 					val_pred = classifier(val_images).squeeze(1)
-					#add save image code
-
-
 
 					val_iteration_loss = loss_criterion(val_pred, val_labels)
 					val_running_loss += val_iteration_loss.item()
@@ -198,18 +214,32 @@ if __name__ == '__main__':
 	with torch.no_grad():
 		classifier.eval()
 		if not train:
-			classifier.load_state_dict(torch.load('model-files/185-0.636.pth'))
+			classifier.load_state_dict(torch.load(
+				'model-files/real-vs-generated/psi-1.0-nvidia/10k-vs-10k/1Conv1FC-1620/12-97.00.pth'
+				# 'model-files/real-vs-generated/psi-1.0-nvidia/10k-vs-10k/1FC-20/52-94.35.pth'
+				))
 			test_running_loss = 0
 			test_iteration_count = 0
 			test_correct = 0
+			#print scores
+			'''
+			for file in os.listdir('random/300'):
+				image = tifffile.imread('random/300/'+file)
+				# print(image)
+				image = Image.fromarray(image,'RGB')
+				image = transform(image)
+				image = image.view(1,3,256,256).cuda()
+				# print(image)
+				pred = classifier(image).squeeze(1)
+				print(pred)
+			'''
 
-			for i,batch in enumerate(testLoader):
+			for i,batch in enumerate(loader):
 
 				test_images, test_labels = batch[0].to('cuda'), batch[1].type(torch.cuda.FloatTensor).to('cuda')
-				
 				test_pred = classifier(test_images).squeeze(1)
-				
-				predict_and_save(test_images, test_pred, test_labels, classes, i)
+				print(test_pred)
+				# predict_and_save(test_images, test_pred, test_labels, classes, i)
 
 				test_iteration_loss = loss_criterion(test_pred, test_labels)
 				test_running_loss += test_iteration_loss.item()
@@ -227,6 +257,8 @@ if __name__ == '__main__':
 
 			test_loss = test_running_loss / test_iteration_count
 			
-			test_acc = test_correct / test_size * 100
+			test_acc = test_correct / 10000 * 100
 	
 			print('test_loss','%.3f'%test_loss,'test_acc', '%.2f'%test_acc + '%')
+			
+			
