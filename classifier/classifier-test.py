@@ -26,7 +26,7 @@ if __name__ == '__main__':
 	num_epochs = 100
 	batch_size = 64
 	dataset_size = 20000
-	start_epoch = 0
+	start_epoch = 60
 
 	transform = transforms.Compose(
 			[
@@ -86,7 +86,7 @@ if __name__ == '__main__':
 	# classifier = ConvNet([16],include_dense=True).to('cuda')
 	# classifier = resnet50(num_classes=1).to('cuda')
 	print(classifier)
-	# classifier.load_state_dict(torch.load('model-files/100-0.651.pth'))
+	classifier.load_state_dict(torch.load('record/model-files/60-0.396.pth'))
 
 	# loss_criterion = nn.BCELoss()
 	loss_criterion = nn.CrossEntropyLoss()
@@ -103,7 +103,7 @@ if __name__ == '__main__':
 	train = True
 
 	if train:
-		writer = SummaryWriter('runs/binary_classifier/real-vs-generated/constant1')
+		writer = SummaryWriter('record/runs/binary_classifier/real-vs-generated/constant1')
 		writer.add_hparams({'lr': lr,
 			'batch_size': batch_size,
 			'seed': seed,
@@ -209,12 +209,12 @@ if __name__ == '__main__':
 					)
 
 				if (epoch+1+start_epoch)%10 == 0:
-					torch.save(classifier.state_dict(), 'model-files/%d-%.3f.pth'%(epoch+1+start_epoch,val_loss))
+					torch.save(classifier.state_dict(), 'record/model-files/%d-%.3f.pth'%(epoch+1+start_epoch,val_loss))
 
 				if val_loss <= lowest_val_loss:
 					lowest_val_loss = val_loss
 					#epochs of model files are wrong
-					torch.save(classifier.state_dict(), 'model-files/%d-%.3f.pth'%(epoch+1+start_epoch,val_loss))
+					torch.save(classifier.state_dict(), 'record/model-files/%d-%.3f.pth'%(epoch+1+start_epoch,val_loss))
 					print('new model saved')
 
 				print('Epoch', epoch+1+start_epoch, 
@@ -233,8 +233,8 @@ if __name__ == '__main__':
 		classifier.eval()
 		if not train:
 			classifier.load_state_dict(torch.load(
-				'model-files/19-0.080.pth'
-				# 'model-files/real-vs-generated/psi-1.0-nvidia/10k-vs-10k/1FC-20/52-94.35.pth'
+				'record/model-files/19-0.080.pth'
+				# 'record/model-files/real-vs-generated/psi-1.0-nvidia/10k-vs-10k/1FC-20/52-94.35.pth'
 				))
 			test_running_loss = 0
 			test_correct = 0
