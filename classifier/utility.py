@@ -73,14 +73,14 @@ def predict_and_save(images,predictions,labels,classes,batch_num):
 	class_prediction = count_correct(predictions, labels)[0]
 	for idx in range(images.size()[0]):
 		matplotlib_imshow(images[idx])
-		plt.title("{0}, \n(label: {1})".format(
+		plt.title("{0}, {1}\n(label: {2})".format(
 			classes[int(class_prediction[idx])],
-			# predictions[idx],
+			predictions[idx,0].item(),
 			classes[int(labels[idx])]),
 					color=("green" if int(class_prediction[idx])==int(labels[idx]) else "red"))
-		file_name = batch_num*64 + idx
+		file_name = batch_num + idx
 		flag = str(int(class_prediction[idx])==int(labels[idx]))
-		plt.savefig('constant1n2/%s-%.3f-%d.jpg' % (flag,class_prediction[idx],file_name))
+		plt.savefig('predictions/constant1-vs-2/%d-%.1f-%s.jpg' % (file_name,class_prediction[idx],flag))
 		plt.close()
 	'''
 	for idx in range(images.size()[0]):

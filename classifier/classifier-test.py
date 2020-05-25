@@ -15,6 +15,7 @@ from torchvision.models import resnet50
 import tifffile
 from PIL import Image
 import os
+import numpy as np
 
 def read_tif(file):
 	return tifffile.imread(file)
@@ -24,38 +25,38 @@ if __name__ == '__main__':
 	seed = 6489
 	torch.manual_seed(seed)
 	num_epochs = 100
-	batch_size = 64
+	batch_size = 1
 	dataset_size = 20000
-	start_epoch = 60
+	start_epoch = 0
 
 	transform = transforms.Compose(
 			[
-				transforms.CenterCrop(256),
-				transforms.Resize(256,Image.LANCZOS),
+				# transforms.CenterCrop(256),
+				# transforms.Resize(256,Image.LANCZOS),
 				transforms.ToTensor(),
 			]
 		)
 
 	#create combined set
 	combined_set = ImageFolder(
-		'real-vs-generated',
-		# 'constant1-vs-2',
+		# 'images/real-vs-generated',
+		'images/constant1-vs-2',
 		transform = transform,
-		# loader=read_tif
+		loader=read_tif
 		)
 
 	print(combined_set)
-	classes = ['generated','real']
-	# classes = ['constant1','constant2']
-	'''
+	# classes = ['generated','real']
+	classes = ['constant1','constant2']
+	
 	#for testing all
 	loader = DataLoader(
 		combined_set,
 		shuffle = False,
 		batch_size = batch_size,
-		num_workers = 8,
+		# num_workers = 8,
 		pin_memory=True)
-	'''
+	
 	#split train val test
 	train_size = int(dataset_size*0.8)
 	val_size = int((dataset_size - train_size)/2)
@@ -86,7 +87,7 @@ if __name__ == '__main__':
 	# classifier = ConvNet([16],include_dense=True).to('cuda')
 	# classifier = resnet50(num_classes=1).to('cuda')
 	print(classifier)
-	classifier.load_state_dict(torch.load('record/model-files/60-0.396.pth'))
+	# classifier.load_state_dict(torch.load('record/model-files/83-0.341.pth'))
 
 	# loss_criterion = nn.BCELoss()
 	loss_criterion = nn.CrossEntropyLoss()
@@ -100,10 +101,10 @@ if __name__ == '__main__':
 	# highest_val_acc = 0
 	lowest_val_loss = 999999
 
-	train = True
+	train = False
 
 	if train:
-		writer = SummaryWriter('record/runs/binary_classifier/real-vs-generated/constant1')
+		writer = SummaryWriter('record/runs/binary-classifier/real-vs-generated/constant1')
 		writer.add_hparams({'lr': lr,
 			'batch_size': batch_size,
 			'seed': seed,
@@ -127,7 +128,7 @@ if __name__ == '__main__':
 
 				adam_optim.zero_grad()
 
-				train_pred = classifier(train_images).squeeze(1)
+				train_pred = classifier(train_images)
 
 				loss = loss_criterion(train_pred, train_labels)
 				
@@ -179,7 +180,7 @@ if __name__ == '__main__':
 				for i,batch in enumerate(valLoader):
 
 					val_images, val_labels = batch[0].to('cuda'), batch[1].to('cuda')
-					val_pred = classifier(val_images).squeeze(1)
+					val_pred = classifier(val_images)
 
 					val_iteration_loss = loss_criterion(val_pred, val_labels)
 					val_running_loss += val_iteration_loss.item()
@@ -233,30 +234,35 @@ if __name__ == '__main__':
 		classifier.eval()
 		if not train:
 			classifier.load_state_dict(torch.load(
-				'record/model-files/19-0.080.pth'
+				'record/model-files/binary-classifier/constant1-vs-2/no-hidden-unit/19-0.080.pth'
 				# 'record/model-files/real-vs-generated/psi-1.0-nvidia/10k-vs-10k/1FC-20/52-94.35.pth'
 				))
 			test_running_loss = 0
 			test_correct = 0
-			#print scores
-			'''
-			for file in os.listdir('random/300'):
-				image = tifffile.imread('random/300/'+file)
-				# print(image)
-				image = Image.fromarray(image,'RGB')
-				image = transform(image)
-				image = image.view(1,3,256,256).cuda()
-				# print(image)
-				pred = classifier(image).squeeze(1)
-				print(pred)
-			'''
 
-			for i,batch in enumerate(testLoader):
+			for i,batch in enumerate(loader):
 				test_images, test_labels = batch[0].to('cuda'), batch[1].to('cuda')
-				test_pred = classifier(test_images).squeeze(1)
-				# print(test_pred)
-				predict_and_save(test_images, test_pred, test_labels, classes, i)
+				test_pred = classifier(test_images)
+				'''
+				flattened=test_images.view(-1,3*2**16)
+				loaded = torch.load('record/model-files/binary-classifier/constant1-vs-2/no-hidden-unit/19-0.080.pth')
+				weights = loaded['progression.0.weight']
+				bias = loaded['progression.0.bias']
 
+				# output = flattened.matmul(weights.t())
+				# output += bias
+				# print(output)
+				square = weights.view(2,3,256,256)
+				weight1 = square[0,:,:,:]
+				weight2 = square[1,:,:,:]
+				result = torch.sum(test_images.squeeze() * weight1.squeeze()) + bias[0]
+				print(result)
+				'''
+
+				# print(torch.mm(flattened,weights).squeeze()+bias)
+				# print(test_pred)
+				# predict_and_save(test_images, test_pred, test_labels, classes, i)
+				
 				test_iteration_loss = loss_criterion(test_pred, test_labels)
 				test_running_loss += test_iteration_loss.item()
 				test_correct += count_correct(test_pred, test_labels)[1]
