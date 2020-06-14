@@ -11,7 +11,6 @@ from torch.utils.data import random_split
 from PIL import Image
 from utility import plot_classes_preds,count_correct,predict_and_save
 import random
-from torchvision.models import resnet50
 import tifffile
 from PIL import Image
 import os
@@ -25,7 +24,7 @@ if __name__ == '__main__':
 	seed = 6489
 	torch.manual_seed(seed)
 	num_epochs = 100
-	batch_size = 1
+	batch_size = 64
 	dataset_size = 20000
 	start_epoch = 0
 
@@ -40,14 +39,16 @@ if __name__ == '__main__':
 	#create combined set
 	combined_set = ImageFolder(
 		# 'images/real-vs-generated',
-		'images/constant1-vs-2',
+		# 'images/last-layer/constant1-vs-3',
+		'images/layer10/gray',
 		transform = transform,
 		loader=read_tif
 		)
 
 	print(combined_set)
 	# classes = ['generated','real']
-	classes = ['constant1','constant2']
+	# classes = ['constant1','constant3']
+	classes = ['unmodified','modified']
 	
 	#for testing all
 	loader = DataLoader(
@@ -62,7 +63,6 @@ if __name__ == '__main__':
 	val_size = int((dataset_size - train_size)/2)
 	test_size = val_size
 	train,val,test = random_split(combined_set, [train_size,val_size,test_size])
-
 	#create loader for combined set
 	trainLoader = DataLoader(
 		train,
@@ -83,28 +83,32 @@ if __name__ == '__main__':
 	testLoader = DataLoader(test,shuffle = False, batch_size = batch_size)
 
 	#network
-	classifier = FCNET(3*2**16, [], 2).to('cuda')
+	# classifier = FCNET(3*2**16, [20], 2).to('cuda')
+	classifier = FCNET(2**16, [], 2).to('cuda')
 	# classifier = ConvNet([16],include_dense=True).to('cuda')
-	# classifier = resnet50(num_classes=1).to('cuda')
 	print(classifier)
-	# classifier.load_state_dict(torch.load('record/model-files/83-0.341.pth'))
+	# classifier.load_state_dict(torch.load('record/model-files/41-0.579.pth'))
 
 	# loss_criterion = nn.BCELoss()
 	loss_criterion = nn.CrossEntropyLoss()
-	lr = 3e-6
+	lr = 1e-4
 	adam_optim = optim.Adam(classifier.parameters(), lr=lr)
 
 	# train_epoch_loss = []
 	# val_epoch_loss = []
 	# train_epoch_acc = []
 	# val_epoch_acc = []
-	# highest_val_acc = 0
-	lowest_val_loss = 999999
+	highest_val_acc = 0
+	# lowest_val_loss = 999999
 
-	train = False
+	train = True
 
 	if train:
-		writer = SummaryWriter('record/runs/binary-classifier/real-vs-generated/constant1')
+		writer = SummaryWriter(
+			# 'record/runs/binary-classifier/noise-injection/real-vs-with-noise/0'
+			# 'record/runs/binary-classifier/noise-injection/diff-vs-diff/2/'
+			'record/runs/binary-classifier/layer10/+0.3'
+			)
 		writer.add_hparams({'lr': lr,
 			'batch_size': batch_size,
 			'seed': seed,
@@ -113,12 +117,10 @@ if __name__ == '__main__':
 
 		for epoch in range(num_epochs):
 			running_loss = 0
-			# iteration_count = 0
 			train_correct = 0
 			train_total = 0
 
 			for i,batch in enumerate(trainLoader):
-				# iteration_count += 1
 				#torch.cuda is really crucial
 				train_images, train_labels = batch[0].to('cuda'),batch[1].to('cuda')
 					# batch[1].type(torch.cuda.FloatTensor).to('cuda')
@@ -148,7 +150,6 @@ if __name__ == '__main__':
 				del loss
 
 			train_loss = running_loss / len(trainLoader)
-			# train_loss = running_loss / iteration_count
 			train_acc = train_correct / train_total  * 100
 			print('Epoch',epoch+1+start_epoch,
 				'train_loss %.3f' % train_loss,
@@ -173,7 +174,7 @@ if __name__ == '__main__':
 			with torch.no_grad():
 				classifier.eval()
 				val_running_loss = 0
-				# val_iteration_count = 0
+
 				val_correct = 0
 
 				# random_batch = random.randint(0,31)
@@ -192,9 +193,6 @@ if __name__ == '__main__':
 					'''
 					val_correct += count_correct(val_pred, val_labels)[1]
 
-					# val_iteration_count += 1
-
-				# val_loss = val_running_loss / val_iteration_count
 				val_loss = val_running_loss / len(valLoader)
 				val_acc = val_correct / val_size * 100
 
@@ -234,35 +232,34 @@ if __name__ == '__main__':
 		classifier.eval()
 		if not train:
 			classifier.load_state_dict(torch.load(
-				'record/model-files/binary-classifier/constant1-vs-2/no-hidden-unit/19-0.080.pth'
-				# 'record/model-files/real-vs-generated/psi-1.0-nvidia/10k-vs-10k/1FC-20/52-94.35.pth'
+				'record/model-files/binary-classifier/noise-injection/diff-vs-diff/12/2-0.000.pth'
 				))
 			test_running_loss = 0
 			test_correct = 0
 
-			for i,batch in enumerate(loader):
+			for i,batch in enumerate(testLoader):
 				test_images, test_labels = batch[0].to('cuda'), batch[1].to('cuda')
 				test_pred = classifier(test_images)
 				'''
-				flattened=test_images.view(-1,3*2**16)
-				loaded = torch.load('record/model-files/binary-classifier/constant1-vs-2/no-hidden-unit/19-0.080.pth')
+				flattened = test_images.view(-1,2**16)
+				loaded = torch.load('record/model-files/13-0.090.pth')
 				weights = loaded['progression.0.weight']
 				bias = loaded['progression.0.bias']
 
-				# output = flattened.matmul(weights.t())
-				# output += bias
-				# print(output)
-				square = weights.view(2,3,256,256)
+				output = flattened.matmul(weights.t())
+				output += bias
+				print(output)
+
+				square = weights.view(2,1,256,256)
 				weight1 = square[0,:,:,:]
 				weight2 = square[1,:,:,:]
-				result = torch.sum(test_images.squeeze() * weight1.squeeze()) + bias[0]
+				result = torch.sum(test_images.squeeze() * weight2.squeeze()) + bias[1]
 				print(result)
+				re_square = flattened.view(1,1,256,256)
+				tifffile.imsave('2.tif',np.transpose(test_images.squeeze(0).cpu().numpy(),(1,2,0)))
+				break
 				'''
-
-				# print(torch.mm(flattened,weights).squeeze()+bias)
-				# print(test_pred)
 				# predict_and_save(test_images, test_pred, test_labels, classes, i)
-				
 				test_iteration_loss = loss_criterion(test_pred, test_labels)
 				test_running_loss += test_iteration_loss.item()
 				test_correct += count_correct(test_pred, test_labels)[1]

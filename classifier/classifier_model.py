@@ -11,20 +11,23 @@ class FCNET(nn.Module):
 		self.input_dim = input_dim
 		self.num_hidden_layer = len(num_units)
 		self.progression = nn.ModuleList([])
-		self.progression.append(nn.Linear(input_dim,out_dim))
+		# self.progression.append(nn.Linear(input_dim,out_dim))
 		# self.progression.append(nn.Sigmoid())
 
-		# self.progression.append(nn.Linear(self.input_dim,num_units[0]))
-		# self.progression.append(nn.ReLU())
-		
-		for i in range(self.num_hidden_layer-1):
-			self.progression.append(nn.Linear(num_units[i],num_units[i+1]))
+		if num_units:
+			self.progression.append(nn.Linear(self.input_dim,num_units[0]))
 			self.progression.append(nn.ReLU())
-		
-		# self.progression.append(nn.Linear(num_units[-1],out_dim))
+			
+			for i in range(self.num_hidden_layer-1):
+				self.progression.append(nn.Linear(num_units[i],num_units[i+1]))
+				self.progression.append(nn.ReLU())
+			
+			self.progression.append(nn.Linear(num_units[-1],out_dim))
 
-		# self.progression.append(nn.Sigmoid())
-		
+		else:
+			self.progression.append(nn.Linear(self.input_dim,out_dim))
+			
+		# self.progression.append(nn.Sigmoid())		
 
 	def forward(self,x):
 		x = x.view(-1,self.input_dim)
